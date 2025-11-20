@@ -1,0 +1,82 @@
+# Podcast Market Digest Assistant
+
+用 Spring Boot 實作的一個「Podcast → 逐字稿 → 財經重點整理 + 技術分析」小工具。  
+目前專注在三個台灣財經 Podcast：
+
+- 股癌（Gooaye）
+- 財女 Jenny
+- 游庭澔的財經號角
+
+核心流程：
+
+1. 透過 SoundOn RSS 解析節目，支援自然語言查詢（例如：「財女 jenny 最近五集」）。
+2. 下載指定集數的 mp3，丟給後端。
+3. 使用 **Gemini STT** 做語音轉文字（繁體中文逐字稿）。
+4. 把逐字稿丟進文字分析 pipeline：
+   - 抽出：總結、重點段落、提到的美股代號、產業 / 主題。
+   - 對提到的美股代號進行簡單技術面檢查（目前串接 Alpha Vantage，若資料源為付費端點會優雅降級）。
+
+這個專案主要拿來當：
+
+- 個人財經日更輔助工具（早上丟昨晚節目 mp3 進來，就能快速看重點）。
+- 履歷 / GitHub Portfolio 用的 side project showcase。
+- 未來可以接到 iOS / Apple Intelligence 的後端 API。
+
+---
+
+## Features
+
+- 🔎 **Podcast Episode 查詢**
+  - 直接用 REST API 查某個來源的最新 N 集。
+  - 來源目前支援：
+    - `gooaye`（股癌）
+    - `jenny`（財女 Jenny）
+    - `horn`（游庭澔 財經號角）
+
+- 💬 **自然語言解析 → RSS + 節目清單**
+  - POST 一句中文 query（例如「幫我抓股癌最新一集」），
+  - 後端會：
+    - 辨識是哪個節目 / 要幾集
+    - 回傳：source metadata + episodes（title/link/guid/pubDate/audioUrl）
+
+- 🧠 **音檔分析：STT + 財經重點 + 技術分析**
+  - 上傳任何 `audio/mpeg`（mp3）：
+    1. 用 Gemini 將音檔轉成繁中逐字稿。
+    2. 用文字分析服務抽出：
+       - 市場總結
+       - 重要 ticker（AAPL、NVDA…）
+       - 產業 / 題材
+       - 宏觀視角（FED、就業、通膨…）
+    3. 嘗試對提到的美股做技術分析（目前走 Alpha Vantage，若遇到 premium 限制會回傳說明）。
+
+---
+
+## 技術棧
+
+- **Backend**
+  - Java 17
+  - Spring Boot 2.7.x
+  - Spring Web (`@RestController`, `RestTemplate`)
+
+- **External APIs**
+  - SoundOn RSS feeds（公開 RSS，不需授權）
+  - Google Gemini Generative Language API（語音 → 文字）
+  - Alpha Vantage（美股技術面資料，之後可替換為其他資料源）
+
+---
+
+## API 說明
+
+### 1. 直接抓節目最新集數
+
+**GET** `/api/podcasts/episodes`
+
+Query 參數：
+
+- `source`：`gooaye` / `jenny` / `horn`
+- `limit`：要幾集（預設可實作為 5）
+
+範例：
+
+```bash
+curl "http://localhost:8080/api/podcasts/episodes?source=jenny&limit=3"
