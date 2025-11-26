@@ -18,19 +18,22 @@ import java.util.List;
 @Service
 public class TechnicalAnalysisService {
 
-    private final AlphaVantageClient alphaVantageClient;
+    // 注入我們新建的 FmpClient
+    private final FmpClient fmpClient;
     private final ObjectMapper objectMapper;
     private final HttpClient httpClient;
 
-    public TechnicalAnalysisService(AlphaVantageClient alphaVantageClient,
+    // 更新建構子，移除 AlphaVantageClient，加入 FmpClient
+    public TechnicalAnalysisService(FmpClient fmpClient,
                                     ObjectMapper objectMapper) {
-        this.alphaVantageClient = alphaVantageClient;
+        this.fmpClient = fmpClient;
         this.objectMapper = objectMapper;
         this.httpClient = HttpClient.newHttpClient();
     }
 
     /**
      * 台股技術分析：使用 FinMind 取得收盤價，計算 lastClose、SMA20、RSI14。
+     * (這段程式碼保持不變)
      */
     public StockTaSummary analyzeTaiwanStock(String symbol, int days) {
         StockTaSummary summary = new StockTaSummary();
@@ -138,7 +141,8 @@ public class TechnicalAnalysisService {
     }
 
     /**
-     * 美股技術分析：使用 Alpha Vantage 取得收盤價，計算 lastClose、SMA20、RSI14。
+     * 美股技術分析：使用 FMP 取得收盤價，計算 lastClose、SMA20、RSI14。
+     * (這是我們修改的重點)
      */
     public StockTaSummary analyzeUsStock(String symbol, int days) {
         StockTaSummary summary = new StockTaSummary();
@@ -146,9 +150,11 @@ public class TechnicalAnalysisService {
         summary.setMarket("US");
 
         try {
-            List<Double> closes = alphaVantageClient.fetchDailyCloses(symbol, days);
+            // *** 核心修改點：呼叫新的 fmpClient ***
+            List<Double> closes = fmpClient.fetchDailyCloses(symbol, days);
+
             if (closes == null || closes.isEmpty()) {
-                summary.setMessage("Alpha Vantage 沒有回傳任何收盤價資料。");
+                summary.setMessage("FMP API 沒有回傳任何收盤價資料，可能是股票代碼有誤或該股票暫無數據。");
                 return summary;
             }
 
@@ -179,7 +185,7 @@ public class TechnicalAnalysisService {
         } catch (Exception e) {
             String error = e.getMessage();
             if (error == null || error.isBlank()) {
-                error = "Alpha Vantage 分析失敗。";
+                error = "FMP API 分析失敗。";
             }
             summary.setMessage(error);
             return summary;
@@ -188,6 +194,7 @@ public class TechnicalAnalysisService {
 
     /**
      * 計算簡單移動平均。
+     * (這段程式碼保持不變)
      */
     private double calculateSma(List<Double> closes, int period) {
         if (closes == null || closes.isEmpty() || period <= 0) {
@@ -205,6 +212,7 @@ public class TechnicalAnalysisService {
 
     /**
      * 計算 RSI（簡單版）。
+     * (這段程式碼保持不變)
      */
     private double calculateRsi(List<Double> closes, int period) {
         if (closes == null || closes.size() <= period || period <= 0) {

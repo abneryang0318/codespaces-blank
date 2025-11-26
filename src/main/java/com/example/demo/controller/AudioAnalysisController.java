@@ -1,7 +1,7 @@
 package com.example.demo.controller;
 
-import com.example.demo.service.GeminiSttService;
 import com.example.demo.service.PodcastEnrichmentService;
+import com.example.demo.service.WhisperClient; // 引入新的 WhisperClient
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -19,12 +19,14 @@ import java.util.Map;
 @RequestMapping("/api")
 public class AudioAnalysisController {
 
-    private final GeminiSttService geminiSttService;
+    // *** 依賴注入修改 ***
+    // 移除 GeminiSttService，加入 WhisperClient
+    private final WhisperClient whisperClient;
     private final PodcastEnrichmentService podcastEnrichmentService;
 
-    public AudioAnalysisController(GeminiSttService geminiSttService,
+    public AudioAnalysisController(WhisperClient whisperClient,
                                    PodcastEnrichmentService podcastEnrichmentService) {
-        this.geminiSttService = geminiSttService;
+        this.whisperClient = whisperClient;
         this.podcastEnrichmentService = podcastEnrichmentService;
     }
 
@@ -46,25 +48,34 @@ public class AudioAnalysisController {
 
         try {
             byte[] audioBytes = file.getBytes();
-            String mimeType = file.getContentType();
-            if (mimeType == null || mimeType.isEmpty()) {
-                mimeType = "audio/mpeg";
-            }
+            String originalFilename = file.getOriginalFilename();
 
-            String transcript = geminiSttService.transcribe(audioBytes, mimeType);
+            // *** 核心流程修改 ***
+            // 步驟 1: 呼叫 WhisperClient 進行語音轉文字
+            String transcript = whisperClient.transcribe(audioBytes, originalFilename);
+
+            // 步驟 2: 將純文字逐字稿交給 EnrichmentService 進行後續分析
             Object analysisResult = podcastEnrichmentService.analyzeWithTa(transcript);
 
+            // 步驟 3: 組合回應 (與之前相同)
             result.put("transcript", transcript);
             result.put("analysisResult", analysisResult);
-            result.put("mimeType", mimeType);
+            result.put("originalFilename", originalFilename);
             result.put("sizeBytes", audioBytes.length);
             result.put("message", "OK");
 
             return ResponseEntity.ok(result);
+
         } catch (IOException ex) {
             result.put("transcript", null);
             result.put("analysisResult", null);
             result.put("message", "讀取上傳檔案失敗: " + ex.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(result);
+        } catch (Exception ex) {
+            // 捕捉 Whisper 或 Gemini 可能拋出的例外
+            result.put("transcript", null);
+            result.put("analysisResult", null);
+            result.put("message", "音訊分析過程中發生錯誤: " + ex.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(result);
         }
     }

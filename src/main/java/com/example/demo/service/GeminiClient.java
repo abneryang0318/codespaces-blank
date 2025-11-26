@@ -60,7 +60,7 @@ public class GeminiClient {
 
     // ----------------- 2) Podcast JSON 分析 -----------------
 
-    public PodcastAnalysisResult analyzePodcast(String input) {
+   public PodcastAnalysisResult analyzePodcast(String input) {
         if (input == null || input.isBlank()) {
             PodcastAnalysisResult empty = new PodcastAnalysisResult();
             empty.setSummary("（沒有內容可供分析）");
@@ -116,8 +116,21 @@ public class GeminiClient {
                 return error;
             }
 
+            // *** 核心修改点：加入防御性解析逻辑 ***
+            String cleanedJson = modelText.trim();
+            if (cleanedJson.startsWith("```json")) {
+                cleanedJson = cleanedJson.substring(7); // 移除 ```json
+            } else if (cleanedJson.startsWith("```")) {
+                cleanedJson = cleanedJson.substring(3); // 移除 ```
+            }
+            if (cleanedJson.endsWith("```")) {
+                cleanedJson = cleanedJson.substring(0, cleanedJson.length() - 3);
+            }
+            cleanedJson = cleanedJson.trim(); // 再次 trim 确保没有多余的换行符
+
             try {
-                return objectMapper.readValue(modelText, PodcastAnalysisResult.class);
+                // 使用清洗过的 JSON 字符串进行解析
+                return objectMapper.readValue(cleanedJson, PodcastAnalysisResult.class);
             } catch (Exception parseError) {
                 PodcastAnalysisResult error = new PodcastAnalysisResult();
                 error.setSummary("無法將 Gemini 回應解析為 JSON，原始內容如下：\n" + modelText);

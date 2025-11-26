@@ -43,6 +43,31 @@
         <artifactId>ta4j-core</artifactId>
         <version>0.16</version>
     </dependency>
+    <dependency>
+    <groupId>org.apache.httpcomponents.client5</groupId>
+    <artifactId>httpclient5</artifactId>
+    <version>5.3.1</version> <!-- 使用最新的穩定版本 -->
+</dependency>
+<!-- PostgreSQL Driver -->
+<dependency>
+    <groupId>org.postgresql</groupId>
+    <artifactId>postgresql</artifactId>
+    <scope>runtime</scope>
+</dependency>
+
+<!-- JPA (如果你原本沒有的話，請加上) -->
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-data-jpa</artifactId>
+</dependency>
+
+<!-- Hypersistence Utils: 讓 Hibernate 輕鬆支援 JSONB 和 Array -->
+<!-- 注意：因為你是 Spring Boot 2.7 (Hibernate 5)，所以選 hibernate-55 -->
+<dependency>
+    <groupId>io.hypersistence</groupId>
+    <artifactId>hypersistence-utils-hibernate-55</artifactId>
+    <version>3.7.0</version>
+</dependency>
     </dependencies>
 
     <build>

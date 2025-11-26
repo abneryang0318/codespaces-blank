@@ -70,7 +70,13 @@ int usCount = 0;
 int skippedCount = 0;
 
 for (String symbol : symbolSet) {
-    String trimmed = symbol.trim();
+    // *** 這是我們加入的優化判斷 ***
+    if (symbol == null || symbol.equalsIgnoreCase("null") || symbol.isBlank()) {
+        continue; // 跳過無效的 symbol，例如 Gemini 回傳的 null 或空字串
+    }
+    
+    String trimmed = symbol.trim().toUpperCase(); // 統一轉為大寫，增加比對穩定性
+
     // 台股：4 位數字，例如 2330
     if (trimmed.matches("\\d{4}")) {
         StockTaSummary ta = technicalAnalysisService.analyzeTaiwanStock(trimmed, 120);
@@ -78,7 +84,8 @@ for (String symbol : symbolSet) {
         twCount++;
     }
     // 美股：1~5 個英文字母或帶一個點，例如 TSLA、NVDA、BRK.B
-    else if (trimmed.matches("^[A-Za-z\\.]{1,5}$")) {
+    // 這裡我們也檢查一下，確保不是 "NULL" 這個字串
+    else if (!trimmed.equals("NULL") && trimmed.matches("^[A-Z\\.]{1,5}$")) {
         StockTaSummary ta = technicalAnalysisService.analyzeUsStock(trimmed, 120);
         techMap.put(trimmed, ta);
         usCount++;
@@ -117,7 +124,7 @@ response.setMessage(msg.toString());
                                 java.util.Map<String, StockTaSummary> technicals) {
     StringBuilder sb = new StringBuilder();
 
-    // 1) 本集重點
+    // 1) 本集重點 (保持不變)
     if (analysis != null
             && analysis.getSummary() != null
             && !analysis.getSummary().isBlank()) {
@@ -136,9 +143,14 @@ response.setMessage(msg.toString());
             String sentiment = ticker.getSentiment();
             String reason = ticker.getReason();
 
+            // 如果 symbol 是 null 或無效，就跳過這個 ticker 的處理
+            if (symbol == null || symbol.equalsIgnoreCase("null") || symbol.isBlank()) {
+                continue;
+            }
+
             String displayName = (name != null && !name.isBlank())
-                    ? name + " (" + symbol + ")"
-                    : symbol;
+                    ? name + " (" + symbol.toUpperCase() + ")"
+                    : symbol.toUpperCase();
 
             sb.append("- ").append(displayName).append("：");
 
@@ -151,8 +163,8 @@ response.setMessage(msg.toString());
                 sb.append("。");
             }
 
-            StockTaSummary ta = (technicals != null && symbol != null)
-                    ? technicals.get(symbol)
+            StockTaSummary ta = (technicals != null)
+                    ? technicals.get(symbol.toUpperCase()) // 確保用大寫字母查詢
                     : null;
 
             if (ta != null) {
@@ -165,7 +177,7 @@ response.setMessage(msg.toString());
                     double rsi14 = ta.getRsi14();
 
                     if (lastClose > 0) {
-                        sb.append("最近收盤價約 ").append(lastClose).append("，");
+                        sb.append("最近收盤價約 ").append(String.format(java.util.Locale.US, "%.2f", lastClose)).append("，");
                     }
 
                     if (sma20 > 0) {
@@ -184,12 +196,13 @@ response.setMessage(msg.toString());
                         sb.append("RSI 數值暫缺。");
                     }
                 } else {
-                    if (taMessage != null
-                            && taMessage.contains("premium endpoint")) {
-                        sb.append("美股價格資料來自免費方案，目前此資料源僅開放付費用戶，暫時無法提供技術分析。");
+                    // *** 核心修改點：優雅地處理錯誤訊息 ***
+                    if (taMessage != null && taMessage.contains("402") && taMessage.contains("subscription")) {
+                        sb.append("免費方案不支援此股票的查詢，暫無技術分析資料。");
+                    } else if (taMessage != null && taMessage.contains("API")) {
+                        sb.append("因外部 API 問題，暫時無法取得技術分析資料。");
                     } else {
-                        sb.append("資料暫時無法取得。系統訊息：")
-                                .append(taMessage);
+                        sb.append("資料暫缺或查詢失敗。");
                     }
                 }
             }
@@ -199,7 +212,7 @@ response.setMessage(msg.toString());
         sb.append("\n");
     }
 
-    // 3) 產業與主題
+    // 3) 產業與主題 (保持不變)
     if (analysis != null
             && analysis.getSectors() != null
             && !analysis.getSectors().isEmpty()) {
@@ -225,7 +238,7 @@ response.setMessage(msg.toString());
         sb.append("\n");
     }
 
-    // 4) 宏觀市場
+    // 4) 宏觀市場 (保持不變)
     if (analysis != null
             && analysis.getMacroView() != null
             && !analysis.getMacroView().isEmpty()) {

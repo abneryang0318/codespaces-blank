@@ -32,3 +32,18 @@ build/
 ### VS Code ###
 .vscode/
 *.mp3
+
+# 忽略環境變數設定檔
+.vscode/launch.json
+env.sh
+
+# 忽略 Google Cloud SDK
+google-cloud-sdk/
+
+
+# 忽略 Maven 編譯產出 (如果有缺的話)
+target/
+*.class
+
+# 忽略其他常見的垃圾檔
+.DS_Store
